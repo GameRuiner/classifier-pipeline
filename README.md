@@ -4,5 +4,5 @@ This repository contains a flexible classifier pipeline that can be used to trai
 
 ## Overiew
 
-1. **Data Preprocessing**: The pipeline preprocesses the input data, handling missing values and encoding categorical features as necessary.
+1. **Data Preprocessing**: The pipeline preprocesses the input data, handling missing values, scaling numerical features and encoding categorical features as necessary.
 1. **Cross-Validation**: The pipeline performs cross-validation to evaluate the performance of the model on the given dataset. This helps in assessing the generalization ability of the model and avoiding overfitting.
