@@ -38,6 +38,8 @@ vectorized_transformer = Pipeline(steps=[
 ])
 
 def process_data(df, target_column, big_size_dataset = 100000):
+  if type(df) == str:
+    df = pd.read_csv(df)
   y = df[target_column]
   X = df.drop([target_column], axis=1)
   categorical_cols = [cname for cname in X.columns if X[cname].nunique() < 10 and  X[cname].dtype == "object"]
