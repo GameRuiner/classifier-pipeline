@@ -60,7 +60,8 @@ def process_data(df, target_column, big_size_dataset = 100000):
   logistic_regression  = GridSearchCV(
     LogisticRegression(max_iter=1000),
     logistic_param_grid,
-    cv = 2
+    cv = 2,
+    refit=True
   )
   models_to_test = [
     ('Logistic Regression', logistic_regression, cv),
@@ -69,12 +70,15 @@ def process_data(df, target_column, big_size_dataset = 100000):
     random_forest = GridSearchCV(
          RandomForestClassifier(),
          {'n_estimators': [200], 'max_depth' : [4, 8]},
-         cv = 2)
+         cv = 2,
+         refit=True
+         )
     models_to_test.append(('Random Forest', random_forest, cv))
     svm_model = GridSearchCV(
          svm.SVC(),
          {'C': [1, 10]},
-         cv = 2)
+         cv = 2,
+         refit=True)
     models_to_test.append(('SVM', svm_model, cv))
   results = []
   for name, model, cv in models_to_test:
@@ -82,6 +86,7 @@ def process_data(df, target_column, big_size_dataset = 100000):
                                 ('model', model)
                               ])
     score = cross_val_score(pipeline, X, y, cv=cv, scoring='accuracy').mean()
+    pipeline.fit(X, y)
     results.append((score, name, pipeline))
   results.sort()
   best_result = results[0]
