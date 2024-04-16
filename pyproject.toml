@@ -3,7 +3,7 @@ requires = ["hatchling"]
 build-backend = "hatchling.build"
 [project]
 name = "flexible_classifier"
-version = "0.0.2"
+version = "0.0.21"
 authors = [
   { name="Marko Golovko", email="markgolovko@gmail.com" },
 ]
