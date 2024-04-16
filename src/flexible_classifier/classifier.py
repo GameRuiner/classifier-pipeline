@@ -1,16 +1,18 @@
+import os
+os.environ['TF_ENABLE_ONEDNN_OPTS'] = '0'
+os.environ['TF_CPP_MIN_LOG_LEVEL'] = '1'
 import pandas as pd
+import numpy as np
+from tensorflow import keras
 from sklearn.compose import ColumnTransformer
 from sklearn.pipeline import Pipeline
 from sklearn.impute import SimpleImputer
 from sklearn.preprocessing import OneHotEncoder
 from sklearn.feature_extraction.text import TfidfVectorizer
-from sklearn.model_selection import cross_val_score
-from sklearn.linear_model import LogisticRegression
-from sklearn.ensemble import RandomForestClassifier
 from sklearn.preprocessing import StandardScaler
-from sklearn.model_selection import GridSearchCV
-from sklearn import svm
 from sklearn.base import BaseEstimator, TransformerMixin
+from sklearn.preprocessing import LabelEncoder
+from keras.utils import to_categorical
 
 class FeatureMerger(BaseEstimator, TransformerMixin):
   def fit(self, X, y=None):
@@ -37,58 +39,72 @@ vectorized_transformer = Pipeline(steps=[
   ('vectorize', TfidfVectorizer(max_features=2000))
 ])
 
-def process_data(df, target_column, big_size_dataset = 100000):
+class PreprocessingModel:
+  def __init__(self, model, pipeline, label_encoder):
+    self.model = model
+    self.pipeline = pipeline
+    self.label_encoder = label_encoder
+    
+  def preprocess(self, X):
+    return self.pipeline.transform(X)
+    
+  def decode_target(self, encoded_target):
+    encoded_label_target = np.argmax(encoded_target, axis=1)
+    return self.label_encoder.inverse_transform(encoded_label_target)
+  
+  def predict(self, X):
+    X_prep = self.preprocess(X)
+    y_pred = self.model.predict(X_prep)
+    return self.decode_target(y_pred)
+
+def process_data(df, target_column):
   if type(df) == str:
     df = pd.read_csv(df)
-  y = df[target_column]
-  X = df.drop([target_column], axis=1)
-  categorical_cols = [cname for cname in X.columns if X[cname].nunique() < 10 and  X[cname].dtype == "object"]
-  vectorized_cols = [cname for cname in X.columns if X[cname].nunique() >= 10 and  X[cname].dtype == "object"]
-  numerical_cols = [cname for cname in X.columns if X[cname].dtype in ['int64', 'float64']]
+  df_train = df.sample(frac=0.7)
+  df_valid = df.drop(df_train.index)
+  le = LabelEncoder()
+  y_train = to_categorical(le.fit_transform(df_train[target_column]))
+  y_valid = to_categorical(le.transform(df_valid[target_column]))
+  X_train = df_train.drop([target_column], axis=1)
+  X_valid = df_valid.drop([target_column], axis=1)
+  categorical_cols = [cname for cname in X_train.columns if X_train[cname].nunique() < 10 and  X_train[cname].dtype == "object"]
+  vectorized_cols = [cname for cname in X_train.columns if X_train[cname].nunique() >= 10 and  X_train[cname].dtype == "object"]
+  numerical_cols = [cname for cname in X_train.columns if X_train[cname].dtype in ['int64', 'float64']]
   preprocessor = ColumnTransformer(
     transformers=[
         ('num', numerical_transformer, numerical_cols),
         ('cat', categorical_transformer, categorical_cols),
         ('vect', vectorized_transformer, vectorized_cols)
     ])
-  cv = 5
-  if (len(vectorized_cols) > 1):
-    cv = 3
-  logistic_param_grid = {"max_iter": [1000]}
-  if df.shape[0] < big_size_dataset:
-    logistic_param_grid["C"] = [0.5, 1, 1.5]
-  logistic_regression  = GridSearchCV(
-    LogisticRegression(max_iter=1000),
-    logistic_param_grid,
-    cv = 2,
-    refit=True
+  pipeline = Pipeline(steps=[('preprocessor', preprocessor)])
+  X_prep_train = pipeline.fit_transform(X_train)
+  input_shape = [X_prep_train.shape[1]]
+  X_prep_valid = pipeline.transform(X_valid)
+  model = keras.Sequential([
+    keras.layers.Input(input_shape),
+    keras.layers.Dense(units=32, activation='relu'),
+    keras.layers.Dense(units=32, activation='relu'),
+    keras.layers.Dense(units=y_train.shape[1]),
+  ])
+  model.compile(optimizer='adam',
+              loss='categorical_crossentropy',
+              metrics=['accuracy'])
+  early_stopping = keras.callbacks.EarlyStopping(
+    patience=10,
+    min_delta=0.001,
+    restore_best_weights=True,
   )
-  models_to_test = [
-    ('Logistic Regression', logistic_regression, cv),
-  ]
-  if df.shape[0] < big_size_dataset:
-    random_forest = GridSearchCV(
-         RandomForestClassifier(),
-         {'n_estimators': [200], 'max_depth' : [4, 8]},
-         cv = 2,
-         refit=True
-         )
-    models_to_test.append(('Random Forest', random_forest, cv))
-    svm_model = GridSearchCV(
-         svm.SVC(),
-         {'C': [1, 10]},
-         cv = 2,
-         refit=True)
-    models_to_test.append(('SVM', svm_model, cv))
-  results = []
-  for name, model, cv in models_to_test:
-    pipeline = Pipeline(steps=[('preprocessor', preprocessor),
-                                ('model', model)
-                              ])
-    score = cross_val_score(pipeline, X, y, cv=cv, scoring='accuracy').mean()
-    pipeline.fit(X, y)
-    results.append((score, name, pipeline))
-  results.sort()
-  best_result = results[0]
-  print(f"Model is {best_result[1]}. With average accuracy {best_result[0]}")
-  return best_result[2]
+  history = model.fit(
+    X_prep_train, y_train, 
+    validation_data=(X_prep_valid, y_valid), 
+    batch_size=128, 
+    epochs=100, 
+    callbacks=[early_stopping],
+    verbose=0
+  )
+  history_df = pd.DataFrame(history.history)
+  print(("Best Validation Loss: {:0.4f}" +\
+      "\nBest Validation Accuracy: {:0.4f}")\
+      .format(history_df['loss'].min(), 
+              history_df['accuracy'].max()))
+  return PreprocessingModel(model, pipeline, le)
