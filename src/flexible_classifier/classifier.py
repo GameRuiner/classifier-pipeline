@@ -82,9 +82,13 @@ def process_data(df, target_column):
   X_prep_valid = pipeline.transform(X_valid)
   model = keras.Sequential([
     keras.layers.Input(input_shape),
-    keras.layers.Dense(units=32, activation='relu'),
-    keras.layers.Dense(units=32, activation='relu'),
-    keras.layers.Dense(units=y_train.shape[1]),
+    keras.layers.Dense(units=256, activation='relu'),
+    keras.layers.BatchNormalization(),
+    keras.layers.Dropout(0.2),
+    keras.layers.Dense(units=128, activation='relu'),
+    keras.layers.BatchNormalization(),
+    keras.layers.Dropout(0.2),
+    keras.layers.Dense(units=y_train.shape[1], activation='sigmoid'),
   ])
   model.compile(optimizer='adam',
               loss='categorical_crossentropy',
@@ -97,10 +101,9 @@ def process_data(df, target_column):
   history = model.fit(
     X_prep_train, y_train, 
     validation_data=(X_prep_valid, y_valid), 
-    batch_size=128, 
+    batch_size=32, 
     epochs=100, 
     callbacks=[early_stopping],
-    verbose=0
   )
   history_df = pd.DataFrame(history.history)
   print(("Best Validation Loss: {:0.4f}" +\
