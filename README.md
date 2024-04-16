@@ -5,15 +5,15 @@ This repository contains a flexible classifier pipeline that can be used to trai
 ## Overview
 
 1. **Data Preprocessing**: The pipeline preprocesses the input data, handling missing values, scaling numerical features and encoding categorical features as necessary.
-2. **Classification Model**: Function tries variety of classification models to use in the pipeline, such as Logistic Regression, Random Forest, Support Vector Machines.
-3. **Cross-Validation**: The pipeline performs cross-validation to evaluate the performance of the model on the given dataset. This helps in assessing the generalization ability of the model and avoiding overfitting.
+2. **Classification Model**: The function employs a neural network featuring multiple hidden layers, batch normalization, and dropout regularization as components within the pipeline.
+3. **Validation**: The pipeline utilizes validation data to assess the model's performance on the provided dataset. This process aids in evaluating the model's generalization capabilities and mitigating overfitting.
 
 ## Usage
 
 1. **Prepare Your Data**: Ensure that your data is in a suitable format for classification tasks. 
 2. **Import the Pipeline**: Import function `process_data` which contains  preprocessing steps and the classification model.
 3. **Train and Evaluate the Model**: Pass your data to the pipeline's function along with the target variable (i.e., the label to be predicted).
-4. **Interpret the Results**: The pipeline will determine the average accuracy of the model across the cross-validation folds. Use this metric to assess the performance of the model on your dataset.
+4. **Interpret the Results**: The pipeline will determine the validation accuracy of the model. Use this metric to assess the performance of the model on your dataset.
 5. **Use generated pipeline for predictions**: Function will return generated pipeline.
 
 ## Example Usage
